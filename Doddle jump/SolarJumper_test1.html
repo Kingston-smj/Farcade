@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planet Hopper</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(45deg, #0a0a23, #1a1a2e, #16213e);
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        
+        #gameContainer {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            height: 100%;
+            max-height: 600px;
+            border: 2px solid #4a9eff;
+            border-radius: 10px;
+            overflow: hidden;
+            background-image: url('Doodles_background_01 2.jpg'); /*use doodle backgroung*/
+            background-size: cover;
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+        #gameCanvas {
+            display: block;
+            cursor: auto;
+        }
+        
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-size: 18px;
+            z-index: 100;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+        }
+        
+        #gameOver {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            font-size: 24px;
+            display: none;
+            z-index: 200;
+        }
+        
+        #restartBtn {
+            background: #4a9eff;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 18px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: background 0.3s;
+        }
+        
+        #restartBtn:hover {
+            background: #357abd;
+        }
+        
+        #controls {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            color: white;
+            font-size: 12px;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="1000" height="1000"></canvas>
+        <!--NOTE: game height: 1000, width:800-->
+        
+        <div id="ui">
+            <div>Score: <span id="score">0</span></div>
+            <div>Galaxy: <span id="galaxy">1</span>/10</div>
+            <div>Zoom: <span id="zoom">1.0x</span></div>
+        </div>
+        
+        <div id="gameOver">
+            <h2>Game Over!</h2>
+            <p>Final Score: <span id="finalScore">0</span></p>
+            <p>Galaxy Reached: <span id="finalGalaxy">1</span></p>
+            <button id="restartBtn">Play Again</button>
+        </div>
+        
+        <div id="controls">
+            Mouse Wheel: Zoom | Click: Launch | Space: Reset Zoom
+        </div>
+        <!---Add start game screen-->
+        <button id="launchBtn" style="
+        position: absolute; 
+        bottom: 20px; 
+        left: 50%; 
+        transform: translateX(-50%);
+        width: 60px; 
+        height: 60px; 
+        border-radius: 50%; 
+        border: 2px solid black; 
+        background-color: red; 
+        color: black; 
+        font-size: 14px; 
+        text-align: match-center; 
+        line-height: 40px; 
+        cursor: pointer;
+    ">Launch</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const gameContainer = document.getElementById('gameContainer');
+        const containerWidth = gameContainer.offsetWidth;
+        const containerHeight = gameContainer.offsetHeight;
+            
+
+        // Game state
+        let game = {
+            score: 0,
+            galaxy: 1,
+            zoom: 0.5,
+            cameraY: 0,
+            player: null,
+            planets: [],
+            wormhole: null,
+            isGameOver: false,
+            isLaunching: false,
+            launchDirection: { x: 0, y: 0 },
+        };
+        
+        // Player class
+        class Player {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.radius = 8;
+                this.vx = 0;
+                this.vy = 0;
+                this.onPlanet = null;
+                this.lastPlanet = null;
+                this.launchCooldown = 120;
+            }
+            
+            update() {
+                if (this.onPlanet) {
+                    // Rotate planet
+                    const rotationSpeed = 0.02 + (game.galaxy - 1) * 0.01;
+                    this.onPlanet.rotation += rotationSpeed;
+                    const distance = this.onPlanet.radius + this.radius + 5;
+                    this.x = this.onPlanet.x + Math.cos(this.onPlanet.rotation) * distance;
+                    this.y = this.onPlanet.y + Math.sin(this.onPlanet.rotation) * distance;
+                    // Update launch direction based on planet's rotation
+                    game.launchDirection.x = Math.cos(this.onPlanet.rotation);
+                    game.launchDirection.y = Math.sin(this.onPlanet.rotation);
+                } else {
+                    // Flying through space
+                    this.x += this.vx;
+                    this.y += this.vy;
+
+                    // Decrease launch cooldown
+                    if (this.launchCooldown > 0) {
+                        this.launchCooldown--;
+                    }
+                    // Check collision with planets (but not the one we just launched from)
+                    for (let planet of game.planets) {
+                        if (planet === this.lastPlanet && this.launchCooldown > 0) {
+                            continue; // Skip collision with launch planet briefly
+                        }
+                        
+                        const dx = this.x - planet.x;
+                        const dy = this.y - planet.y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        
+                        if (distance < this.radius + planet.radius) {
+                            this.landOnPlanet(planet);
+                            break;
+                        }
+                    }
+                    
+                    // Check collision with wormhole
+                    if (game.wormhole) {
+                        const dx = this.x - game.wormhole.x;
+                        const dy = this.y - game.wormhole.y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        
+                        if (distance < this.radius + game.wormhole.radius) {
+                            nextGalaxy();
+                        }
+                    }
+                }
+            }
+            
+            launch() {
+                if (this.onPlanet && !game.isLaunching) {
+                    this.lastPlanet = this.onPlanet; // Remember the planet we're launching from
+                    this.launchCooldown = 120; // Ignore collision with launch planet for 15 frames
+                    this.onPlanet = null;
+                    const launchSpeed = 10;
+                    this.vx = game.launchDirection.x * launchSpeed;
+                    this.vy = game.launchDirection.y * launchSpeed;
+                    game.isLaunching = true;
+                    
+                    // Create launch particles
+                    
+                }
+            }
+            
+            landOnPlanet(planet) {
+                // Stop the player's movement
+                this.vx = 0;
+                this.vy = 0;
+
+                // Set the player to be "on the planet"
+                this.onPlanet = planet;
+
+                // Calculate the player's position on the planet's surface
+                const distance = planet.radius + this.radius; // Distance from the planet's center to the player's surface
+                this.x = planet.x + Math.cos(planet.rotation) * distance;
+                this.y = planet.y + Math.sin(planet.rotation) * distance;
+
+                // Reset launch cooldown to prevent immediate re-launch
+                this.launchCooldown = 30; // Adjust cooldown duration as needed
+
+                // Update the last planet to prevent collision during cooldown
+                this.lastPlanet = planet;
+
+                // Trigger any planet-specific effects (e.g., score updates)
+                game.score += planet.points || 0; // Add points if the planet has a score value
+                game.isLaunching = false;
+                // Add score
+                game.score += 100;
+                updateUI();
+            }
+            draw() {
+                // Draw launch direction indicator
+                if (this.onPlanet) {
+                    const indicatorLength = 40;
+                    const endX = this.x + game.launchDirection.x * indicatorLength;
+                    const endY = this.y + game.launchDirection.y * indicatorLength;
+                    
+                    ctx.strokeStyle = '#ffff00';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.moveTo(this.x, this.y);
+                    ctx.lineTo(endX, endY);
+                    ctx.stroke();
+                    
+                    // Arrow head
+                    const angle = Math.atan2(game.launchDirection.y, game.launchDirection.x);
+                    ctx.fillStyle = '#ffff00';
+                    ctx.beginPath();
+                    ctx.moveTo(endX, endY);
+                    ctx.lineTo(endX - 10 * Math.cos(angle - 0.3), endY - 10 * Math.sin(angle - 0.3));
+                    ctx.lineTo(endX - 10 * Math.cos(angle + 0.3), endY - 10 * Math.sin(angle + 0.3));
+                    ctx.closePath();
+                    ctx.fill();
+                }
+                
+                // Draw player as an astronaut
+                const astronautImage = new Image();
+                astronautImage.src = 'doopie 04.png'; // Replace with doodle image
+                
+                // Increase the size of the astronaut image
+                const sizeMultiplier = 3; // Adjust the multiplier to increase size
+                const newRadius = this.radius * sizeMultiplier;
+                
+                // Draw astronaut image
+                ctx.drawImage(astronautImage, this.x - newRadius, this.y - newRadius, newRadius * 2, newRadius * 2);
+                
+                ctx.fill();
+            }
+        }
+        
+        // Planet class
+        class Planet {
+            constructor(x, y, radius, color = '#8b5a3c') {
+                this.x = x;
+                this.y = y;
+                this.radius = radius;
+                this.color = color;
+                this.rotation = Math.random() * Math.PI * 2;
+            }
+            
+            draw() {
+                // Draw planet
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Draw planet details
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius * 0.7, 0, Math.PI * 2);
+                ctx.stroke();
+                
+                // Draw planet glow
+                const gradient = ctx.createRadialGradient(this.x, this.y, this.radius, this.x, this.y, this.radius * 1.5);
+                gradient.addColorStop(0, 'rgba(139, 90, 60, 0.3)');
+                gradient.addColorStop(1, 'rgba(139, 90, 60, 0)');
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius * 1.5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        
+        // Wormhole class
+        class Wormhole {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.radius = 40;
+                this.rotation = 0;
+            }
+            
+            update() {
+                this.rotation += 0.1;
+            }
+            
+            draw() {
+                // Draw swirling wormhole
+                for (let i = 0; i < 5; i++) {
+                    const radius = this.radius - i * 5;
+                    const alpha = 0.8 - i * 0.15;
+                    
+                    const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, radius);
+                    gradient.addColorStop(0, `rgba(147, 0, 211, ${alpha})`);
+                    gradient.addColorStop(0.5, `rgba(75, 0, 130, ${alpha * 0.5})`);
+                    gradient.addColorStop(1, `rgba(75, 0, 130, 0)`);
+                    
+                    ctx.fillStyle = gradient;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, radius, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                // Draw rotating spiral
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+                ctx.lineWidth = 2;
+                for (let i = 0; i < 3; i++) {
+                    ctx.beginPath();
+                    for (let angle = 0; angle < Math.PI * 4; angle += 0.1) {
+                        const r = (this.radius * 0.8) * (1 - angle / (Math.PI * 4));
+                        const x = this.x + Math.cos(angle + this.rotation + i * Math.PI * 2 / 3) * r;
+                        const y = this.y + Math.sin(angle + this.rotation + i * Math.PI * 2 / 3) * r;
+                        
+                        if (angle === 0) {
+                            ctx.moveTo(x, y);
+                        } else {
+                            ctx.lineTo(x, y);
+                        }
+                    }
+                    ctx.stroke();
+                }
+            }
+        }
+        
+      
+        // Generate galaxy map
+        function generateGalaxy(galaxyNum) {
+            game.planets = [];
+            
+        
+            
+            const numPlanets = 5 + (galaxyNum - 1) * (25 - 5) / (10 - 1);
+            const mapHeight = 500 + numPlanets * 100; // 500 base + 100 per planet
+
+            
+            for (let i = 0; i < numPlanets; i++) {
+                const y = 100 + (i / numPlanets) * mapHeight;
+                const x = 400 + Math.sin(i * 0.5) * 200 + (Math.random() - 0.5) * 100;
+                const radius = 25 + Math.random() * 20;
+                
+                const colors = ['#8b5a3c', '#4a7c59', '#6b5b95', '#88d8b0', '#ff6b6b', '#4ecdc4'];
+                const color = colors[Math.floor(Math.random() * colors.length)];
+                
+                game.planets.push(new Planet(x, y, radius, color));
+            }
+            
+            // Create wormhole at the top
+            const lastPlanet = game.planets[0];
+            game.wormhole = new Wormhole(lastPlanet.x, lastPlanet.y - 200);
+            
+            // Place player on first planet
+            if (game.planets.length > 0) {
+                const firstPlanet = game.planets[game.planets.length - 1];
+                game.player = new Player(firstPlanet.x, firstPlanet.y - firstPlanet.radius - 13);
+                game.player.landOnPlanet(firstPlanet);
+            }
+            
+            // Reset camera
+            game.cameraY = 0;
+        }
+        
+        // Next galaxy
+        function nextGalaxy() {
+            if (game.galaxy < 10) {
+                game.galaxy++;
+                game.score += 500; // Bonus for completing galaxy
+                generateGalaxy(game.galaxy);
+                updateUI();
+
+            } else {
+                // Game completed!
+                game.score += 2000;
+                updateUI();
+                setTimeout(gameOver, 1000);
+            }
+        }
+        
+        // Game over
+        function gameOver() {
+            game.isGameOver = true;
+            document.getElementById('finalScore').textContent = game.score;
+            document.getElementById('finalGalaxy').textContent = game.galaxy;
+            document.getElementById('gameOver').style.display = 'block';
+        }
+        
+        // Update UI
+        function updateUI() {
+            document.getElementById('score').textContent = game.score;
+            document.getElementById('galaxy').textContent = game.galaxy;
+            document.getElementById('zoom').textContent = game.zoom.toFixed(1) + 'x';
+        }
+        
+        // Render game
+        function render() {
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Save context for camera transforms
+            ctx.save();
+            
+            // Apply camera transforms
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.scale(game.zoom, game.zoom);
+            // Center camera on player (both X and Y)
+            ctx.translate(-game.player.x, -game.player.y);
+           //ctx.translate(-game.player.x, - (game.player.y + game.cameraY));
+            // Draw planets
+            for (let planet of game.planets) {
+                planet.draw();
+            }
+            
+            // Draw wormhole
+            if (game.wormhole) {
+                game.wormhole.draw();
+            }
+            
+ 
+            // Draw player
+            if (game.player) {
+                game.player.draw();
+            }
+            
+            // Restore context
+            ctx.restore();
+        }
+        
+        // Game loop
+        function gameLoop() {
+            if (!game.isGameOver) {
+            // Initialize score before the first jump
+            if (game.score === undefined) {
+                game.score = 0; // Set initial score to zero
+            }
+                // Update game objects
+                if (game.player) {
+                    game.player.update();
+                }
+                // Check if out of bounds
+                if (game.player.launchCooldown <= 0) { // Skip out-of-bounds check during launch cooldown
+                    if (game.player.x < 0 || game.player.x > containerWidth || 
+                        game.player.y < 0 || game.player.y > containerHeight+100) {
+                        gameOver();
+                    }
+                }
+                
+                if (game.wormhole) {
+                    game.wormhole.update();
+                }
+                
+                // Update camera to follow player
+                if (game.player) {
+                    const targetCameraY = Math.max(0, Math.min(200, (600 - game.player.y) / game.zoom));
+                    game.cameraY += (targetCameraY - game.cameraY) * 0.1;
+                }
+            }
+            
+            render();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Event listeners
+       
+        // Launch button functionality for both PC and mobile
+        document.getElementById('launchBtn').addEventListener('click', () => {
+            if (game.player) {
+                game.player.launch(); // Trigger the player's launch method
+            }
+        });
+            // Scroll functionality for both PC and mobile
+        let lastTouchY = null;
+        // Calculate dynamic map height based on number of planets and their spacing
+        function getMapHeight() {
+            return game.planets.length * 100 + 800; // Base height + spacing per planet
+        }
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const scrollDelta = e.deltaY > 0 ? 50 : -50;
+            const currentMapHeight = getMapHeight();
+            
+            // Calculate new camera position
+            const newCameraY = game.player.y + scrollDelta;
+            
+            // Clamp camera position within map bounds
+            game.cameraY = Math.max(0, Math.min(currentMapHeight - canvas.height, newCameraY));
+            updateUI();
+        });
+
+        canvas.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) {
+                lastTouchY = e.touches[0].clientY;
+            }
+        });
+
+        canvas.addEventListener('touchmove', (e) => {
+            if (e.touches.length === 1) {
+                e.preventDefault();
+                const currentTouchY = e.touches[0].clientY;
+
+                if (lastTouchY) {
+                    const deltaY = currentTouchY - lastTouchY;
+                    const currentMapHeight = getMapHeight();
+                    
+                    // Calculate new camera position
+                    const newCameraY = game.player.y - deltaY;
+                    
+                    // Clamp camera position within map bounds
+                    game.cameraY = Math.max(0, Math.min(currentMapHeight - canvas.height, newCameraY));
+                    updateUI();
+                }
+                lastTouchY = currentTouchY;
+            }
+        });
+
+        canvas.addEventListener('touchend', () => {
+            lastTouchY = null;
+        });
+        // Zoom functionality for both PC and mobile
+        let lastTouchDistance = null;
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const zoomDelta = e.deltaY > 0 ? 0.9 : 1.1;
+            game.zoom = Math.max(0.5, Math.min(3.0, game.zoom * zoomDelta));
+            updateUI();
+        });
+
+        canvas.addEventListener('touchmove', (e) => {
+            if (e.touches.length === 2) {
+                e.preventDefault();
+                const touch1 = e.touches[0];
+                const touch2 = e.touches[1];
+
+                // Calculate the distance between two fingers
+                const currentTouchDistance = Math.sqrt(
+                    Math.pow(touch2.clientX - touch1.clientX, 2) +
+                    Math.pow(touch2.clientY - touch1.clientY, 2)
+                );
+
+                if (lastTouchDistance) {
+                    const zoomDelta = currentTouchDistance > lastTouchDistance ? 1.1 : 0.9;
+                    game.zoom = Math.max(0.5, Math.min(3.0, game.zoom * zoomDelta));
+                    updateUI();
+                }
+
+                lastTouchDistance = currentTouchDistance;
+            }
+        });
+
+        canvas.addEventListener('touchend', () => {
+            lastTouchDistance = null; // Reset after touch ends
+        });
+
+        // Reset zoom for both PC and mobile
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                game.zoom = 1.0;
+                updateUI();
+            }
+        });
+
+        canvas.addEventListener('dblclick', () => {
+            // Double-tap or double-click to reset zoom
+            game.zoom = 1.0;
+            updateUI();
+        });
+
+        document.getElementById('restartBtn').addEventListener('click', () => {
+            // Reset game
+            game.score = 0;
+            game.galaxy = 1;
+            game.zoom = 1.0;
+            game.cameraY = 0;
+            game.isGameOver = false;
+            game.isLaunching = false;
+            
+            generateGalaxy(1);
+            updateUI();
+            
+            document.getElementById('gameOver').style.display = 'none';
+        });
+        // Initialize game
+        generateGalaxy(1);
+        updateUI();
+        gameLoop();
+    </script>
+</body>
+</html>
