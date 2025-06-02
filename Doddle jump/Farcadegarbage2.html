@@ -1,43 +1,52 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Planet Hopper - Phaser 3</title>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Doopie Odyssey</title>
     <style>
-        body {
-            margin: 0;
-            padding: 0;
-            background: transparent;
-            font-family: 'Arial', sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-        }
-        
-        #gameContainer {
-            position: relative;
-            border: 2px solid #4a9eff;
-            border-radius: 10px;
-            overflow: hidden;
-            /* Background image would go here - using gradient for now */
-            background: url('Doodles_background_01 2.jpg') no-repeat center center;
-            background-size: cover;
-        }
-        
-        #ui {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            color: white;
-            font-size: 18px;
-            z-index: 100;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-            pointer-events: none;
-        }
-        
-        #gameOver {
+      body {
+        margin: 0;
+        padding: 0;
+        background: transparent;
+        font-family: "Arial", sans-serif;
+        overflow: hidden;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        user-select: none; /* Prevent text selection */
+      }
+
+      #gameContainer {
+        position: relative;
+        width: 100%;
+        max-width: 800px;
+        height: 100%;
+        max-height: 600px;
+        border: 2px solid #4a9eff;
+        border-radius: 10px;
+        overflow: hidden;
+        background-image: solid blue;
+        box-sizing: border-box;
+      }
+      #gameCanvas {
+        display: block;
+        cursor: auto;
+      }
+
+      #ui {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        color: white;
+        font-size: 18px;
+        z-index: 100;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+        user-select: none; /* Prevent text selection */
+      }
+
+      /*#gameOver {
             position: absolute;
             top: 50%;
             left: 50%;
@@ -50,35 +59,18 @@
             font-size: 24px;
             display: none;
             z-index: 200;
-        }
-        
-        #restartBtn {
-            background: #4a9eff;
-            color: white;
-            border: none;
-            padding: 15px 30px;
-            border-radius: 8px;
-            font-size: 18px;
-            cursor: pointer;
-            margin-top: 20px;
-            transition: background 0.3s;
-        }
-        
-        #restartBtn:hover {
-            background: #357abd;
-        }
-        
-        #controls {
-            position: absolute;
-            bottom: 10px;
-            left: 10px;
-            color: white;
-            font-size: 12px;
-            opacity: 0.8;
-            pointer-events: none;
-        }
-        
-        #launchBtn {
+        }*/
+
+      #controls {
+        position: absolute;
+        bottom: 10px;
+        left: 10px;
+        color: white;
+        font-size: 12px;
+        opacity: 0.8;
+        user-select: none; /* Prevent text selection */
+      }
+      #launchBtn {
             position: absolute;
             bottom: 20px;
             left: 50%;
@@ -94,28 +86,35 @@
             line-height: 56px;
             cursor: pointer;
             z-index: 100;
-        }
-        @media (max-width: 768px) {
-            #gameContainer {
-                width: 100vw;
-                height: 100vh;
-                border: none;
-                border-radius: 0;
-            }
-            
-            #launchBtn {
-                width: 80px;
-                height: 80px;
-                font-size: 16px;
-            }
-            
-            #controls {
-                display: none;
-            }
-        }
+      }
+      @media (max-width: 768px) {
+          #gameContainer {
+              width: 100vw;
+              height: 100vh;
+              border: none;
+              border-radius: 0;
+          }
+          
+          #launchBtn {
+              width: 80px;
+              height: 80px;
+              font-size: 16px;
+          }
+          
+          #controls {
+              display: none;
+          }
+      }
+
+      /* Remove custom game over styles as per requirements */
     </style>
-</head>
-<body>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
+    <!-- Ensure Phaser 3.55 -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.min.js"></script>
+    <!-- Ensure Three.js 0.170.0 -->
+    <script src="https://cdn.jsdelivr.net/npm/@farcade/game-sdk@latest/dist/index.min.js"></script>
+  </head>
+  <body>
     <div id="gameContainer">
         <div id="ui">
             <div>Score: <span id="score">0</span></div>
@@ -131,131 +130,140 @@
         </div>
         
         <div id="controls">
-            Mouse Wheel: Zoom | Click: Launch | Space: Reset Zoom
+            Mouse Wheel / Pinch: Zoom | Click Launch: Launch
         </div>
         
         <button id="launchBtn">Launch</button>
     </div>
-
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.55.2/phaser.min.js"></script>
+    <!-- Ensure game attaches here -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.55.2/phaser.min.js"></script><!--Might be an issue-->
     <script>
-        // Game configuration
-        const config = {
-            type: Phaser.AUTO,
-            width: 800,
-            height: 600,
-            parent: 'gameContainer',
-            backgroundColor: 'transparent',
-            physics: {
-                default: 'arcade',
-                arcade: {
-                    gravity: { y: 0 },
-                    debug: false
-                }
-            },
-            scene: {
-                preload: preload,
-                create: create,
-                update: update
-            }
-        };
+      // Initialize Farcade SDK when game is ready
+      window.addEventListener("load", () => {
+        window.FarcadeSDK.singlePlayer.actions.ready();
+      });
 
-        // Game variables
-        let gameState = {
-            score: 0,
-            galaxy: 1,
-            zoom: 0.50,
-            isGameOver: false,
-            isLaunching: false,
-            launchDirection: { x: 0, y: 0 },
-            launchCooldown: 0
-        };
+      const config = {
+        type: Phaser.AUTO,
+        width: 360, // 9:16 aspect ratio (e.g., 360x640)
+        height: 640,
+        parent: "gameContainer",
+        backgroundColor: 'transparent',
+        scale: {
+          mode: Phaser.Scale.FIT,
+          autoCenter: Phaser.Scale.CENTER_BOTH,
+        },
+        physics: {
+              default: 'arcade',
+              arcade: {
+                  gravity: { y: 0 },
+                  debug: false
+              }
+          },
+        scene: {
+          preload: preload,
+          create: create,
+          update: update,
+        },
+      };
 
-        let player, planets, wormhole, launchIndicator, arrowHead;
-        let cameras, cursors;
+      // const gameInstance = new Phaser.Game(config); not mine
+      // Game variables
+      let gameState = {
+          score: 0,
+          galaxy: 1,
+          zoom: 0.50,
+          isGameOver: false,
+          isLaunching: false,
+          launchDirection: { x: 0, y: 0 },
+          launchCooldown: 0
+      };
 
-        function preload() {
-            // Create basic shapes instead of loading external assets
-            
-            // Player sprite - using basic circle for astronaut
-            // TODO: Replace with astronaut sprite (doopie 04.png)
-           this.load.image('doopie', 'doopie 04.png');
-           this.load.image('background', 'Doodles_background_01 2.jpg');
-           this.load.image('Wormhole', 'Asset 2@2x.png');
-        }
+      let player, planets, wormhole, launchIndicator, arrowHead;
+      let cameras, cursors;
+      let phaserGame; // Phaser game instance not mine
+      let score = 0; // Game score for Farcade integration not mine
 
-        function create() {
-            // Set world bounds
-            this.physics.world.setBounds(0, 0, 1920, 1080);
-            // Add this at the start of create function
-            const background = this.add.image(400, 1500, 'background');
-            background.setScale(10); // Adjust scale as needed
-            
-            
-            
-            // Create groups
-            planets = this.physics.add.staticGroup();
-            
-            // Create player
-            player = this.physics.add.sprite(400, 2800, 'doopie');
-            player.setScale(0.1); // Adjust this value between 0.1 and 1.0 to scale the sprite
-            player.setCollideWorldBounds(false);
-            player.body.setCircle(600);
-            player.onPlanet = null;
-            player.lastPlanet = null;
-            player.planetRotation = 0;
-            
-            // Create launch direction indicator
-            launchIndicator = this.add.line(0, 0, 0, 0, 40, 0, 0xffff00);
-            launchIndicator.setLineWidth(3);
-            launchIndicator.setVisible(false);
-            
-            // Create arrow head for launch indicator
-            arrowHead = this.add.triangle(0, 0, 0, 0, -10, -5, -10, 5, 0xffff00);
-            arrowHead.setVisible(false);
-            
-            // Camera setup
-            cameras = this.cameras.main;
-            cameras.startFollow(player);
+      function preload() {
+         this.load.image('doopie', 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/234077cc-919a-4d53-a8e8-ca771ca29591/doopie%2004-qXm5TZmx5i0Uw7LlWoove8843Uw5lc.png?f87K');
+           this.load.image('background', 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/234077cc-919a-4d53-a8e8-ca771ca29591/Doodles_background_01%202-SJGXW5gqjioRPHg0uIfJOhSJFGHWr3.jpg?4wGi');
+           this.load.image('Wormholecave', 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/234077cc-919a-4d53-a8e8-ca771ca29591/Crown-htL5fTSZVTU9XGdjlsd0onTze9saSL.png?9iBP');
+      }
+
+      function create() {
+        // Set world bounds
+        this.physics.world.setBounds(0, 0, 1920, 1080);
+        // Add this at the start of create function
+        const background = this.add.image(400, 1500, 'background');
+        background.setScale(10); // Adjust scale as needed
+        
+        
+        
+        // Create groups
+        planets = this.physics.add.staticGroup();
+        
+        // Create player
+        player = this.physics.add.sprite(400, 2800, 'doopie');
+        player.setScale(0.1); // Adjust this value between 0.1 and 1.0 to scale the sprite
+        player.setCollideWorldBounds(false);
+        player.body.setCircle(600);
+        player.onPlanet = null;
+        player.lastPlanet = null;
+        player.planetRotation = 0;
+        
+        // Create launch direction indicator
+        launchIndicator = this.add.line(0, 0, 0, 0, 40, 0, 0xffff00);
+        launchIndicator.setLineWidth(3);
+        launchIndicator.setVisible(false);
+        
+        // Create arrow head for launch indicator
+        arrowHead = this.add.triangle(0, 0, 0, 0, -10, -5, -10, 5, 0xffff00);
+        arrowHead.setVisible(false);
+        
+        // Camera setup
+        cameras = this.cameras.main;
+        cameras.startFollow(player);
+        cameras.setZoom(gameState.zoom);
+        
+        // Input setup
+        cursors = this.input.keyboard.createCursorKeys();
+        
+        // Mouse wheel zoom
+        this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY, deltaZ) => {
+            const zoomDelta = deltaY > 0 ? 0.9 : 1.1;
+            gameState.zoom = Phaser.Math.Clamp(gameState.zoom * zoomDelta, 0.1, 2.0);
             cameras.setZoom(gameState.zoom);
-            
-            // Input setup
-            cursors = this.input.keyboard.createCursorKeys();
-            
-            // Mouse wheel zoom
-            this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY, deltaZ) => {
-                const zoomDelta = deltaY > 0 ? 0.9 : 1.1;
-                gameState.zoom = Phaser.Math.Clamp(gameState.zoom * zoomDelta, 0.1, 2.0);
-                cameras.setZoom(gameState.zoom);
-                updateUI();
-            });
-            
-            // Space key to reset zoom
-            this.input.keyboard.on('keydown-SPACE', () => {
-                gameState.zoom = 1.0;
-                cameras.setZoom(gameState.zoom);
-                updateUI();
-            });
-             this.input.on('pinch', (pinch) => {
-                const zoomDelta = pinch.scaleFactor > 1 ? 1.1 : 0.9;
-                gameState.zoom = Phaser.Math.Clamp(gameState.zoom * zoomDelta, 0.5, 3.0);
-                cameras.setZoom(gameState.zoom);
-                updateUI();
-            });
-            
-            // Remove click event as it's now handled by the launch button
-            // The launch button click handler is already set up in the HTML
-            
-            // Physics collision
-            this.physics.add.overlap(player, planets, landOnPlanet, null, this);
-            
-            // Generate first galaxy
-            generateGalaxy(this);
             updateUI();
-        }
+        });
+        
+        // Space key to reset zoom
+        this.input.keyboard.on('keydown-SPACE', () => {
+            gameState.zoom = 1.0;
+            cameras.setZoom(gameState.zoom);
+            updateUI();
+        });
+          this.input.on('pinch', (pinch) => {
+            const zoomDelta = pinch.scaleFactor > 1 ? 1.1 : 0.9;
+            gameState.zoom = Phaser.Math.Clamp(gameState.zoom * zoomDelta, 0.5, 3.0);
+            cameras.setZoom(gameState.zoom);
+            updateUI();
+        });
+        
+        // Remove click event as it's now handled by the launch button
+        // The launch button click handler is already set up in the HTML
+        
+        // Physics collision
+        this.physics.add.overlap(player, planets, landOnPlanet, null, this);
+        
+        // Generate first galaxy
+        generateGalaxy(this);
+        updateUI();
+        phaserGame = this; // Reference to Phaser scene not mine
+      }
 
-        function update() {
-            if (gameState.isGameOver) return;
+      function update() {
+        // Game update logic
+        if (gameState.isGameOver) return;
             
             // Update launch cooldown
             if (gameState.launchCooldown > 0) {
@@ -301,12 +309,11 @@
             }
             
             // Update wormhole rotation
-            if (wormhole) {
-                wormhole.rotation += 0.1;
-            }
-        }
-
-        function generateGalaxy(scene) {
+            //if (wormhole) {
+              //  wormhole.rotation += 0.1;
+            //}
+      }
+    function generateGalaxy(scene) {
             // Clear existing planets
             planets.clear(true, true);
             if (wormhole) wormhole.destroy();
@@ -351,13 +358,12 @@
                 
                 // Create wormhole - TODO: Replace with wormhole sprite/animation 
                 // player = this.physics.add.sprite(400, 2800, 'doopie');
-                wormhole = scene.add.circle(topPlanet.x, topPlanet.y - 200, 40, 0x9300d3);
-                wormhole.setStrokeStyle(3, 0xffffff, 0.8);
-                wormhole.setAlpha(0.8);
+                wormhole = scene.add.sprite(topPlanet.x, topPlanet.y - 400, 'Wormholecave');
+                wormhole.setScale(2); 
                 
                 // Add physics body for collision detection
                 scene.physics.add.existing(wormhole, true);
-                wormhole.body.setCircle(40);
+                wormhole.body.setCircle(60);
             }
             
             // Place player on bottom planet
@@ -453,47 +459,58 @@
             }
         }
 
-        function gameOver() {
-            gameState.isGameOver = true;
-            document.getElementById('finalScore').textContent = gameState.score;
-            document.getElementById('finalGalaxy').textContent = gameState.galaxy;
-            document.getElementById('gameOver').style.display = 'block';
-        }
-
-        function updateUI() {
-            document.getElementById('score').textContent = gameState.score;
-            document.getElementById('galaxy').textContent = gameState.galaxy;
-            document.getElementById('zoom').textContent = gameState.zoom.toFixed(1) + 'x';
-        }
-
-        function restartGame() {
-            gameState.score = 0;
-            gameState.galaxy = 1;
-            gameState.zoom = 1.0;
-            gameState.isGameOver = false;
-            gameState.isLaunching = false;
-            gameState.launchCooldown = 0;
-            
-            // Reset camera
-            game.scene.scenes[0].cameras.main.setZoom(1.0);
-            
-            generateGalaxy(game.scene.scenes[0]);
-            updateUI();
-            
-            document.getElementById('gameOver').style.display = 'none';
-        }
-
-        // Event listeners for UI buttons
+      function gameOver() {
+        gameState.isGameOver = true;
+        window.FarcadeSDK.singlePlayer.actions.gameOver({ score: gameState.score }, {galaxy: gameState.galaxy}); // Use Farcade game over
+        window.FarcadeSDK.singlePlayer.actions.hapticFeedback(); // Add haptic feedback on game over
+      }
+      function updateUI() {
+          document.getElementById('score').textContent = gameState.score;
+          document.getElementById('galaxy').textContent = gameState.galaxy;
+          document.getElementById('zoom').textContent = gameState.zoom.toFixed(1) + 'x';
+      }
+      // Event listeners for UI buttons
         document.getElementById('launchBtn').addEventListener('click', () => {
             if (game && game.scene.scenes[0]) {
                 launchPlayer();
             }
         });
 
-        document.getElementById('restartBtn').addEventListener('click', restartGame);
+      // Add Farcade event listeners
+      window.FarcadeSDK.on("play_again", () => {
+        // Reset game state
+        gameState.score = 0;
+        gameState.galaxy = 1;
+        gameState.zoom = 1.0;
+        gameState.cameraY = 0;
+        gameState.isGameOver = false;
+        gameState.isLaunching = false;
+        const game = new Phaser.Game(config);
 
-        // Start the game
+       
+      });
+
+      window.FarcadeSDK.on("toggle_mute", (data) => {
+        // Handle mute/unmute, e.g., if using audio
+        if (data.isMuted) {
+          // Mute audio
+        } else {
+          // Unmute audio
+        }
+      });
+
+      // Add haptic feedback to important interactions, e.g., launch
+      function launchPlayer() {
+        if (game.player && game.player.onPlanet && !game.isLaunching) {
+          game.player.launch();
+          window.FarcadeSDK.singlePlayer.actions.hapticFeedback(); // Haptic on launch
+        }
+      }
+
+      
+
+      // Start the game
         const game = new Phaser.Game(config);
     </script>
-</body>
+  </body>
 </html>
