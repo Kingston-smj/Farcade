@@ -24,6 +24,7 @@
             /* Background image would go here - using gradient for now */
             background: url('Doodles_background_01 2.jpg') no-repeat center center;
             background-size: cover;
+         
         }
         
         #ui {
@@ -68,20 +69,27 @@
             background: #357abd;
         }
         
-        #controls {
+    
+        #ZoomControls {
             position: absolute;
-            bottom: 10px;
-            left: 10px;
+            bottom: 80px;
+            right: 5px;
             color: white;
             font-size: 12px;
-            opacity: 0.8;
+            opacity: 1;
+            font-weight: bold;
             pointer-events: none;
+            display: flex;
+            gap: 100px; /* Adds space between Zoom In and Zoom Out */
+            /* OR */
+            margin: 0 20px; /* Adds margin on sides */
         }
+                
         
         #launchBtn {
             position: absolute;
             bottom: 20px;
-            left: 50%;
+            left: 10%;
             transform: translateX(-50%);
             width: 60px;
             height: 60px;
@@ -95,24 +103,26 @@
             cursor: pointer;
             z-index: 100;
         }
-        @media (max-width: 768px) {
-            #gameContainer {
-                width: 100vw;
-                height: 100vh;
-                border: none;
-                border-radius: 0;
-            }
-            
-            #launchBtn {
-                width: 80px;
-                height: 80px;
-                font-size: 16px;
-            }
-            
-            #controls {
-                display: none;
-            }
+        #zoomInBtn, #zoomOutBtn {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 2px solid black;
+            background-color: #4a9eff;
+            color: white;
+            font-size: 24px;
+            text-align: center;
+            line-height: 46px;
+            cursor: pointer;
+            z-index: 100;
         }
+        #zoomInBtn {
+            right: 80px; /* Adjust position for zoom in button */
+        }
+    
     </style>
 </head>
 <body>
@@ -130,11 +140,14 @@
             <button id="restartBtn">Play Again</button>
         </div>
         
-        <div id="controls">
-            Mouse Wheel: Zoom | Click: Launch | Space: Reset Zoom
+        
+        <div id="ZoomControls">
+         Zoom In &nbsp;&nbsp;&nbsp;&nbsp; Zoom Out
         </div>
         
         <button id="launchBtn">Launch</button>
+        <button id="zoomInBtn">+</button>
+        <button id="zoomOutBtn">-</button>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.55.2/phaser.min.js"></script>
@@ -142,8 +155,8 @@
         // Game configuration
         const config = {
             type: Phaser.AUTO,
-            width: 800,
-            height: 600,
+            width: 360,
+            height: 640,
             parent: 'gameContainer',
             backgroundColor: 'transparent',
             physics: {
@@ -181,7 +194,7 @@
             // TODO: Replace with astronaut sprite (doopie 04.png)
            this.load.image('doopie', 'doopie 04.png');
            this.load.image('background', 'Doodles_background_01 2.jpg');
-           this.load.image('Wormhole', 'Asset 2@2x.png');
+           this.load.image('Wormholecave', 'Crown.png');
         }
 
         function create() {
@@ -211,40 +224,20 @@
             launchIndicator.setVisible(false);
             
             // Create arrow head for launch indicator
-            arrowHead = this.add.triangle(0, 0, 0, 0, -10, -5, -10, 5, 0xffff00);
+            
+            arrowHead = this.add.triangle(0, 0, 0, 0, -30, -15, -30, 15, 0xff0000); 
             arrowHead.setVisible(false);
             
             // Camera setup
             cameras = this.cameras.main;
             cameras.startFollow(player);
             cameras.setZoom(gameState.zoom);
+
+          
+             
             
             // Input setup
             cursors = this.input.keyboard.createCursorKeys();
-            
-            // Mouse wheel zoom
-            this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY, deltaZ) => {
-                const zoomDelta = deltaY > 0 ? 0.9 : 1.1;
-                gameState.zoom = Phaser.Math.Clamp(gameState.zoom * zoomDelta, 0.1, 2.0);
-                cameras.setZoom(gameState.zoom);
-                updateUI();
-            });
-            
-            // Space key to reset zoom
-            this.input.keyboard.on('keydown-SPACE', () => {
-                gameState.zoom = 1.0;
-                cameras.setZoom(gameState.zoom);
-                updateUI();
-            });
-             this.input.on('pinch', (pinch) => {
-                const zoomDelta = pinch.scaleFactor > 1 ? 1.1 : 0.9;
-                gameState.zoom = Phaser.Math.Clamp(gameState.zoom * zoomDelta, 0.5, 3.0);
-                cameras.setZoom(gameState.zoom);
-                updateUI();
-            });
-            
-            // Remove click event as it's now handled by the launch button
-            // The launch button click handler is already set up in the HTML
             
             // Physics collision
             this.physics.add.overlap(player, planets, landOnPlanet, null, this);
@@ -299,11 +292,7 @@
             )) {
                 nextGalaxy(this);
             }
-            
-            // Update wormhole rotation
-            if (wormhole) {
-                wormhole.rotation += 0.1;
-            }
+
         }
 
         function generateGalaxy(scene) {
@@ -328,12 +317,12 @@
                 
                 // Create planet using graphics - TODO: Replace with planet sprites
                 const colors = [ 0x2C3E50,  // Dark Blue
-    0x8E44AD,  // Dark Purple
-    0x2E4053,  // Navy Blue
-    0x784212,  // Dark Brown
-    0x186A3B,  // Dark Green
-    0x7B241C   // Dark Red
-    ];
+                                    0x8E44AD,  // Dark Purple
+                                    0x2E4053,  // Navy Blue
+                                    0x784212,  // Dark Brown
+                                    0x186A3B,  // Dark Green
+                                    0x7B241C   // Dark Red
+                                    ];
                 const color = colors[Math.floor(Math.random() * colors.length)];
                 
                 const planet = scene.add.circle(x, y, radius, color);
@@ -351,14 +340,14 @@
                 
                 // Create wormhole - TODO: Replace with wormhole sprite/animation 
                 // player = this.physics.add.sprite(400, 2800, 'doopie');
-                wormhole = scene.add.circle(topPlanet.x, topPlanet.y - 200, 40, 0x9300d3);
-                wormhole.setStrokeStyle(3, 0xffffff, 0.8);
-                wormhole.setAlpha(0.8);
+                wormhole = scene.add.sprite(topPlanet.x, topPlanet.y - 400, 'Wormholecave');
+                wormhole.setScale(2); 
                 
                 // Add physics body for collision detection
                 scene.physics.add.existing(wormhole, true);
-                wormhole.body.setCircle(40);
+                wormhole.body.setCircle(60);
             }
+           
             
             // Place player on bottom planet
             if (planets.children.entries.length > 0) {
@@ -400,16 +389,19 @@
             player.x = planetSprite.x + Math.cos(newAngle) * distance;
             player.y = planetSprite.y + Math.sin(newAngle) * distance;
             
-            
+
             gameState.isLaunching = false;
             gameState.launchCooldown = 50;
             
+            
             updateUI();
+        
         }
 
         function launchPlayer() {
             if (player.onPlanet && !gameState.isLaunching) {
                 player.lastPlanet = player.onPlanet;
+                const planetToDestroy = player.onPlanet;  // Store reference to current planet
                 player.onPlanet = null;
                 gameState.launchCooldown = 120;
                 
@@ -420,13 +412,19 @@
                 );
                 
                 gameState.isLaunching = true;
+                // Destroy the planet immediately after launch
+                if (planetToDestroy && planetToDestroy !== planets.children.entries[0]) {
+                    planets.remove(planetToDestroy, true);
+                    planetToDestroy.destroy();
+                    updateUI();
+                }
             }
         }
 
         function updateLaunchIndicator() {
             if (!player.onPlanet) return;
             
-            const indicatorLength = 40;
+            const indicatorLength = 80;
             const endX = player.x + gameState.launchDirection.x * indicatorLength;
             const endY = player.y + gameState.launchDirection.y * indicatorLength;
             
@@ -452,6 +450,7 @@
                 setTimeout(gameOver, 1000);
             }
         }
+            
 
         function gameOver() {
             gameState.isGameOver = true;
@@ -477,20 +476,51 @@
             // Reset camera
             game.scene.scenes[0].cameras.main.setZoom(1.0);
             
+
             generateGalaxy(game.scene.scenes[0]);
             updateUI();
             
             document.getElementById('gameOver').style.display = 'none';
+            // Recreate zoom buttons if they don't exist
+            // Preserve current zoom level instead of resetting it
+            const currentZoom = gameState.zoom;
+            
+            // Reset game
+            generateGalaxy(game.scene.scenes[0]);
+            
+            // Restore zoom and camera
+            gameState.zoom = currentZoom;
+            game.scene.scenes[0].cameras.main.setZoom(currentZoom);
+            
+            // Recreate zoom buttons if they don't exist
+            const scene = game.scene.scenes[0];
+            if (!scene.zoomInBtn || !scene.zoomOutBtn) {
+                createZoomControls(scene);
+            }
+            
         }
 
         // Event listeners for UI buttons
         document.getElementById('launchBtn').addEventListener('click', () => {
             if (game && game.scene.scenes[0]) {
                 launchPlayer();
-            }
-        });
+            }})
+        document.getElementById('zoomInBtn').addEventListener('click', () => {
+            if (game && game.scene.scenes[0]) {
+                gameState.zoom = Phaser.Math.Clamp(gameState.zoom * 1.1, 0.1, 2.0);
+                game.scene.scenes[0].cameras.main.setZoom(gameState.zoom);
+                updateUI();
+            }})
+        document.getElementById('zoomOutBtn').addEventListener('click', () => {
+            if (game && game.scene.scenes[0]) {
+                gameState.zoom = Phaser.Math.Clamp(gameState.zoom * 0.9, 0.1, 2.0);
+                game.scene.scenes[0].cameras.main.setZoom(gameState.zoom);
+                updateUI();
+            }});
+         
 
-        document.getElementById('restartBtn').addEventListener('click', restartGame);
+
+        document.getElementById('restartBtn').addEventListener('click', restartGame);//didn't ship this
 
         // Start the game
         const game = new Phaser.Game(config);
